@@ -18,6 +18,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 # Copy application source
 COPY main.py ./
 COPY templates ./templates/
+COPY static ./static/
 
 # Install the project
 RUN uv sync --frozen --no-dev

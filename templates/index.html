@@ -311,6 +311,28 @@
             max-width: 400px;
         }
         
+        .video-error-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .video-error-buttons .btn {
+            min-width: 120px;
+        }
+        
+        #retry-video-btn.retrying {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        #retry-video-btn .spinner-border {
+            width: 0.875rem;
+            height: 0.875rem;
+            border-width: 2px;
+        }
+        
         .codec-badge {
             display: inline-block;
             padding: 0.25rem 0.5rem;
@@ -964,12 +986,21 @@
                                             <span id="current-segment-display">Segment 0</span>
                                         </div>
                                         <div class="video-error-overlay" id="video-error" style="display: none;">
-                                            <i class="bi bi-exclamation-triangle-fill"></i>
-                                            <h5>Video Cannot Play</h5>
+                                            <i class="bi bi-exclamation-triangle-fill" id="error-icon"></i>
+                                            <div class="spinner-border text-warning" id="retry-spinner" style="display: none; width: 3rem; height: 3rem; margin-bottom: 1rem;" role="status">
+                                                <span class="visually-hidden">Retrying...</span>
+                                            </div>
+                                            <h5 id="error-title">Video Cannot Play</h5>
                                             <p id="video-error-message">This HEVC video format is not supported by your browser.</p>
-                                            <button class="btn btn-accent btn-sm" onclick="switchToCompatibleCamera()">
-                                                <i class="bi bi-play-circle me-1"></i>Switch to Quick Camera (H.264)
-                                            </button>
+                                            <div class="video-error-buttons">
+                                                <button class="btn btn-outline-light btn-sm" id="retry-video-btn" onclick="retryVideo()">
+                                                    <i class="bi bi-arrow-clockwise me-1"></i><span id="retry-btn-text">Retry</span>
+                                                </button>
+                                                <button class="btn btn-accent btn-sm" id="switch-camera-btn" onclick="switchToCompatibleCamera()">
+                                                    <i class="bi bi-play-circle me-1"></i>Switch to Quick Camera (H.264)
+                                                </button>
+                                            </div>
+                                            <small id="retry-status" class="text-muted mt-2" style="display: none;"></small>
                                         </div>
                                     </div>
                                     <div class="playback-controls">
@@ -1698,6 +1729,9 @@
             const codecBadge = document.getElementById('codec-badge');
             const videoErrorEl = document.getElementById('video-error');
             
+            // Reset retry count for new video
+            resetRetryCount();
+            
             // Hide error overlay and info alerts
             videoErrorEl.style.display = 'none';
             hevcWarning.style.display = 'none';
@@ -1901,23 +1935,113 @@
             }
         }
         
-        // Handle video errors
+        // Auto-retry configuration
+        const MAX_RETRIES = 3;
+        const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+        let currentRetryCount = 0;
+        let retryTimeoutId = null;
+        
+        // Reset retry count when loading a new video
+        function resetRetryCount() {
+            currentRetryCount = 0;
+            if (retryTimeoutId) {
+                clearTimeout(retryTimeoutId);
+                retryTimeoutId = null;
+            }
+        }
+        
+        // Retry loading the current video
+        function retryVideo() {
+            if (window.currentSegmentData) {
+                const video = document.getElementById('video-player');
+                const videoErrorOverlay = document.getElementById('video-error');
+                const retryStatus = document.getElementById('retry-status');
+                
+                // Hide error overlay during retry
+                videoErrorOverlay.style.display = 'none';
+                
+                // Reload the video source with cache-busting parameter
+                const currentSrc = video.src;
+                const separator = currentSrc.includes('?') ? '&' : '?';
+                const newSrc = currentSrc.replace(/[&?]_retry=\d+/, '') + separator + '_retry=' + Date.now();
+                
+                video.src = newSrc;
+                video.load();
+                video.play().catch(() => {}); // Ignore autoplay errors
+            }
+        }
+        
+        // Handle video errors with auto-retry
         function handleVideoError(e) {
             const video = document.getElementById('video-player');
             const videoErrorOverlay = document.getElementById('video-error');
             const videoErrorMessage = document.getElementById('video-error-message');
             const cameraSelect = document.getElementById('camera-select');
+            const retryStatus = document.getElementById('retry-status');
+            const retryBtn = document.getElementById('retry-video-btn');
+            const retryBtnText = document.getElementById('retry-btn-text');
             
             // Only show error for HEVC videos without streaming (qcamera should work)
             const isHEVC = currentCameraType !== 'qcamera';
             const isStreaming = isHEVC && serverCapabilities.streaming;
             
             if (video.error) {
+                // Check if error is retryable (network/streaming issues, not codec issues)
+                const isRetryable = isStreaming || 
+                    video.error.code === MediaError.MEDIA_ERR_NETWORK ||
+                    (video.error.code === MediaError.MEDIA_ERR_DECODE && isStreaming);
+                
+                // Auto-retry if we haven't exceeded max retries and error is retryable
+                if (isRetryable && currentRetryCount < MAX_RETRIES) {
+                    currentRetryCount++;
+                    const delay = RETRY_DELAYS[currentRetryCount - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+                    
+                    console.log(`Video error, auto-retrying in ${delay}ms (attempt ${currentRetryCount}/${MAX_RETRIES})`);
+                    
+                    // Show retry status with spinner
+                    const errorIcon = document.getElementById('error-icon');
+                    const retrySpinner = document.getElementById('retry-spinner');
+                    const errorTitle = document.getElementById('error-title');
+                    
+                    videoErrorOverlay.style.display = 'flex';
+                    errorIcon.style.display = 'none';
+                    retrySpinner.style.display = 'inline-block';
+                    errorTitle.textContent = 'Retrying...';
+                    videoErrorMessage.textContent = `Attempt ${currentRetryCount} of ${MAX_RETRIES}`;
+                    retryStatus.style.display = 'block';
+                    retryStatus.textContent = `Waiting ${delay/1000}s before retry...`;
+                    retryBtn.style.display = 'none';
+                    
+                    // Hide switch button during retry
+                    const switchBtn = document.getElementById('switch-camera-btn');
+                    if (switchBtn) switchBtn.style.display = 'none';
+                    
+                    retryTimeoutId = setTimeout(() => {
+                        retryStatus.textContent = 'Retrying now...';
+                        retryVideo();
+                    }, delay);
+                    
+                    return;
+                }
+                
+                // Max retries exceeded or non-retryable error - show final error
+                const errorIcon = document.getElementById('error-icon');
+                const retrySpinner = document.getElementById('retry-spinner');
+                const errorTitle = document.getElementById('error-title');
+                
+                // Reset to error state
+                errorIcon.style.display = 'inline-block';
+                retrySpinner.style.display = 'none';
+                errorTitle.textContent = 'Video Cannot Play';
+                
                 let message = '';
                 
                 if (isStreaming) {
                     // Streaming failed - FFmpeg issue
                     message = 'Video streaming failed. The server may be having trouble transcoding this video.';
+                    if (currentRetryCount >= MAX_RETRIES) {
+                        message += ` (${MAX_RETRIES} retries failed)`;
+                    }
                 } else if (isHEVC) {
                     // Native HEVC playback failed
                     if (video.error.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
@@ -1930,12 +2054,24 @@
                 } else {
                     // H.264 playback failed - unusual
                     message = 'Failed to play video. The file may be corrupted or in an unsupported format.';
+                    if (currentRetryCount >= MAX_RETRIES) {
+                        message += ` (${MAX_RETRIES} retries failed)`;
+                    }
                 }
                 
                 videoErrorMessage.textContent = message;
+                retryStatus.style.display = 'none';
+                
+                // Show retry button for manual retry
+                retryBtn.style.display = 'inline-flex';
+                retryBtnText.textContent = 'Retry';
+                retryBtn.onclick = () => {
+                    currentRetryCount = 0; // Reset for manual retry
+                    retryVideo();
+                };
                 
                 // Show switch button only if qcamera is available and we're not already using it
-                const switchBtn = videoErrorOverlay.querySelector('button');
+                const switchBtn = document.getElementById('switch-camera-btn');
                 if (currentCameraType !== 'qcamera' && window.currentSegmentData && window.currentSegmentData.files.qcamera) {
                     switchBtn.style.display = 'inline-flex';
                 } else if (currentCameraType !== 'qcamera') {

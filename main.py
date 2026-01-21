@@ -1,5 +1,5 @@
 """
-Comma Cam Viewer - Web app to view comma device recorded routes
+PilotView - Web app to view comma device recorded routes
 """
 
 import os
@@ -1591,7 +1591,7 @@ def stream_video(file_path):
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='Comma Cam Viewer')
+    parser = argparse.ArgumentParser(description='PilotView')
     parser.add_argument('--data-dir', '-d', type=str, default=DATA_DIR,
                         help='Path to comma data directory')
     parser.add_argument('--host', type=str, default='127.0.0.1',
@@ -1604,7 +1604,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     DATA_DIR = args.data_dir
-    print(f"Starting Comma Cam Viewer")
+    print(f"Starting PilotView")
     print(f"Data directory: {DATA_DIR}")
     print(f"Server: http://{args.host}:{args.port}")
     

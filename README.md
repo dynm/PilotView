@@ -2,6 +2,8 @@
 
 **PilotView** is a self-hosted web application for playing back your openpilot routes. Deploy it on your NAS or home server to browse and replay your backed-up driving data anytime.
 
+![PilotView screenshot](imgs/screenshot.png)
+
 ## Features
 
 - Browse recorded routes from your backup directory

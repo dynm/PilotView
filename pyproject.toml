@@ -1,0 +1,10 @@
+[project]
+name = "pilotview"
+version = "0.1.0"
+description = "A self-hosted web app to view openpilot routes, videos, and logs"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.2",
+    "openpilot-logging>=0.1.5",
+]

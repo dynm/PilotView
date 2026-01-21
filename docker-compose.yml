@@ -1,0 +1,13 @@
+services:
+  pilotview:
+    image: ghcr.io/dynm/pilotview:latest
+    container_name: pilotview
+    ports:
+      - "5000:5000"
+    volumes:
+      - /path/to/your/realdata:/data:ro
+      - pilotview_cache:/cache
+    restart: unless-stopped
+
+volumes:
+  pilotview_cache:

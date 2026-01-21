@@ -474,6 +474,12 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/favicon.svg')
+def favicon():
+    """Serve the favicon."""
+    return send_file('static/favicon.svg', mimetype='image/svg+xml')
+
+
 @app.route('/api/config')
 def get_config():
     """Get current configuration."""

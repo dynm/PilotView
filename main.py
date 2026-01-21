@@ -477,7 +477,8 @@ def index():
 @app.route('/favicon.svg')
 def favicon():
     """Serve the favicon."""
-    return send_file('static/favicon.svg', mimetype='image/svg+xml')
+    favicon_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon.svg')
+    return send_file(favicon_path, mimetype='image/svg+xml')
 
 
 @app.route('/api/config')

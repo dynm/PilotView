@@ -99,7 +99,7 @@ wheels = [
 ]
 
 [[package]]
-name = "comma-cam-viewer"
+name = "pilotview"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
